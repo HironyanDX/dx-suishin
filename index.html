@@ -4,22 +4,177 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>準備中</title>
+<title>準備中｜DX推進</title>
 <style>
-  :root { color-scheme: light dark; --bg: #f7f7f5; --fg: #2b2b2b; --sub: #6b6b6b; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #1c1c1e; --fg: #ececec; --sub: #a0a0a0; } }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
-    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; }
-  main { min-height: 100%; display: grid; place-content: center; text-align: center; padding: 0 16px; }
-  h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 .5rem; }
-  p { margin: 0; color: var(--sub); font-size: .95rem; }
+  :root {
+    --sky: #e6edf3;
+    --sky-low: #f4f7f9;
+    --ink: #1c2833;
+    --ink-soft: #4d5b68;
+    --sign: #1d5296;
+    --sign-edge: #163f74;
+    --sign-text: #ffffff;
+    --asphalt: #3b3f45;
+    --asphalt-dark: #2f3237;
+    --lane: #f2f2ee;
+    --center: #f0c419;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --sky: #0d1621;
+      --sky-low: #172433;
+      --ink: #e7edf3;
+      --ink-soft: #a3b1bf;
+      --sign: #1f5aa3;
+      --sign-edge: #143e70;
+      --asphalt: #22252a;
+      --asphalt-dark: #1a1c20;
+      --lane: #d9d9d4;
+      --center: #d9ad16;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    min-height: 100svh;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    background: linear-gradient(180deg, var(--sky) 0%, var(--sky-low) 100%);
+    color: var(--ink);
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+    line-height: 1.7;
+  }
+
+  main {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 2.25rem;
+    padding: 3rem 16px 2.5rem;
+  }
+
+  /* 案内標識 */
+  .sign {
+    position: relative;
+    width: min(100%, 27rem);
+    margin: 0;
+    padding: 1.6rem 1.75rem 1.4rem;
+    background: var(--sign);
+    color: var(--sign-text);
+    border-radius: 14px;
+    outline: 4px solid var(--sign-text);
+    outline-offset: -11px;
+    box-shadow: 0 2px 0 var(--sign-edge), 0 18px 30px -18px rgba(13, 30, 52, .55);
+  }
+  .sign-main {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 1.1rem;
+    padding: .35rem .5rem 1.1rem;
+  }
+  .arrow { width: 3.1rem; height: auto; display: block; }
+  .place { display: grid; line-height: 1.15; }
+  .place-ja {
+    font-size: clamp(2.6rem, 11vw, 3.6rem);
+    font-weight: 800;
+    letter-spacing: .06em;
+  }
+  .place-en {
+    margin-top: .35rem;
+    font-size: clamp(.95rem, 3.6vw, 1.15rem);
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+  .sign-sub {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: .85rem .5rem 0;
+    border-top: 3px solid var(--sign-text);
+    font-weight: 700;
+  }
+  .sign-sub .ja { font-size: clamp(1.15rem, 4.6vw, 1.45rem); letter-spacing: .08em; }
+  .sign-sub .en { font-size: clamp(.8rem, 3vw, .95rem); font-weight: 600; }
+
+  .notice { max-width: 30rem; text-align: center; }
+  h1 {
+    margin: 0 0 .5rem;
+    font-size: clamp(1.35rem, 5vw, 1.7rem);
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .notice p { margin: 0; color: var(--ink-soft); font-size: 1rem; }
+  .notice p span { display: inline-block; }
+
+  /* 道路 */
+  .road {
+    position: relative;
+    height: clamp(96px, 18vh, 150px);
+    background: linear-gradient(180deg, var(--asphalt) 0%, var(--asphalt-dark) 100%);
+    border-top: 5px solid var(--lane);
+    overflow: hidden;
+  }
+  .road::before,
+  .road::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+  }
+  .road::before {
+    bottom: 14px;
+    height: 4px;
+    background: var(--lane);
+    opacity: .85;
+  }
+  .road::after {
+    top: 50%;
+    height: 6px;
+    margin-top: -3px;
+    width: calc(100% + 160px);
+    background: repeating-linear-gradient(90deg, var(--center) 0 88px, transparent 88px 160px);
+    animation: drive 2.4s linear infinite;
+  }
+  @keyframes drive {
+    from { transform: translateX(0); }
+    to { transform: translateX(-160px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .road::after { animation: none; }
+  }
 </style>
 </head>
 <body>
 <main>
-  <h1>準備中</h1>
-  <p>このページは現在準備中です。</p>
+  <figure class="sign" aria-label="案内標識：DX推進、まもなく開通">
+    <div class="sign-main">
+      <svg class="arrow" viewBox="0 0 48 64" aria-hidden="true">
+        <path d="M24 2 L46 26 H32 V62 H16 V26 H2 Z" fill="currentColor"/>
+      </svg>
+      <div class="place">
+        <span class="place-ja">DX推進</span>
+        <span class="place-en">DX Suishin</span>
+      </div>
+    </div>
+    <div class="sign-sub">
+      <span class="ja">まもなく開通</span>
+      <span class="en">Opening soon</span>
+    </div>
+  </figure>
+
+  <div class="notice">
+    <h1>ただいま準備中です</h1>
+    <p><span>業務ツールの入口として、</span><span>このページを整えています。</span><span>開通まで</span><span>もうしばらくお待ちください。</span></p>
+  </div>
 </main>
+<div class="road" aria-hidden="true"></div>
 </body>
 </html>
