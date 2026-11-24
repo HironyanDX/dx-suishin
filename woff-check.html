@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>WOFF 配信確認</title>
+</head>
+<body>
+<main>
+<h1>WOFF 配信確認</h1>
+<p>HTMLを表示できました。</p>
+<p id="script-status">JavaScriptの実行待ち</p>
+<p id="launch-status"></p>
+</main>
+<script>
+const query = new URLSearchParams(location.search);
+document.getElementById('script-status').textContent = 'JavaScriptが動作しました。';
+const signed = ['timestamp', 'nonce', 'signature'].every(key => query.has(key));
+document.getElementById('launch-status').textContent = signed
+  ? 'WOFF起動パラメータ3項目あり'
+  : 'WOFF起動パラメータ3項目が揃っていません';
+</script>
+</body>
+</html>
