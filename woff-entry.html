@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ja" data-woff-id="taA77b1K6sBBA_x6vRJu3g" data-gas-endpoint="https://script.google.com/macros/s/AKfycbz0QWS8EWjnGgHVzAgB3MHxyZe66uHmJmlprl0SsnYpprV8gOB5Af0Uy7chTuxYPLmw0Q/exec">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-pTUeeUegwlzoaOS2hoYfHiVHKd0J1Jgf9W5mqxreRMc='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
+<title>六伸DX 運転手WOFF 本人表示</title>
+<style>
+body { margin: 1.25rem auto; padding: 0 1rem; max-width: 36rem; color: #152a38; font: 1.05rem/1.6 system-ui, sans-serif; }
+h1 { font-size: 1.5rem; }
+</style>
+<script defer src="https://static.worksmobile.net/static/wm/woff/edge/3.7.4/sdk.js"></script>
+</head>
+<body>
+<main>
+<h1>本人表示の確認</h1>
+<p id="status" role="status">LINE WORKSで本人を確認中です…</p>
+<noscript>スマートフォンのLINE WORKSで検証用トークのリンクを開いてください。</noscript>
+</main>
+<script>
+'use strict';
+const {woffId, gasEndpoint} = document.documentElement.dataset;
+const search = new URLSearchParams(location.search);
+const fields = new Map([['woffEntry', 'identity']]);
+for (const key of ['timestamp', 'nonce', 'signature']) {
+  const values = search.getAll(key);
+  if (values.length === 1 && values[0]) fields.set(key, values[0]);
+}
+
+window.addEventListener('load', async () => {
+  const status = document.getElementById('status');
+  let stage = 'WOFF-SETUP';
+  let timer;
+  try {
+    if (!/^[\w-]{8,80}$/.test(woffId) ||
+        !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(gasEndpoint)) throw Error();
+    stage = 'WOFF-LAUNCH';
+    if (fields.size !== 4) throw Error();
+    stage = 'WOFF-SDK';
+    const sdk = window.woff;
+    if (!sdk) throw Error();
+    stage = 'WOFF-INIT';
+    await Promise.race([
+      sdk.init({woffId, scope: 'openid email profile'}),
+      new Promise((_, reject) => { timer = setTimeout(reject, 12000); }),
+    ]);
+    stage = 'WOFF-CLIENT';
+    if (!sdk.isInClient()) throw Error();
+    stage = 'WOFF-ID-MISSING';
+    const idToken = sdk.getIDToken();
+    if (typeof idToken !== 'string' || !idToken || idToken.length > 8192) throw Error();
+    // UserInfo is only needed when the verified ID token lacks a confirmed account.
+    let accessToken;
+    try { accessToken = sdk.getAccessToken(); } catch { /* The ID token may be sufficient. */ }
+    const body = [...fields, ['idToken', idToken]];
+    if (search.has('plan')) {
+      const plans = search.getAll('plan');
+      body.push(['plan', plans.length === 1 && /^[a-f0-9-]{36}$/.test(plans[0]) ? plans[0] : '']);
+    }
+    if (typeof accessToken === 'string' && accessToken && accessToken.length <= 4096) {
+      body.push(['accessToken', accessToken]);
+    }
+
+    stage = 'WOFF-CONNECT';
+    const form = document.createElement('form');
+    form.hidden = true;
+    form.method = 'post';
+    form.action = gasEndpoint;
+    for (const [name, value] of body) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.append(input);
+    }
+    document.body.append(form);
+    status.textContent = '検証名簿で本人を確認中です…';
+    form.submit();
+  } catch {
+    status.textContent = '本人確認を続けられませんでした。トークのリンクを開き直してください。（' + stage + '）';
+  } finally {
+    clearTimeout(timer);
+  }
+});
+</script>
+</body>
+</html>
