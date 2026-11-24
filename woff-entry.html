@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-pTUeeUegwlzoaOS2hoYfHiVHKd0J1Jgf9W5mqxreRMc='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-82lwEj+mO6brtDbWx13EM+UfLE2Zv3XvTKTcqyU/pIY='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
 <title>六伸DX 運転手WOFF 本人表示</title>
 <style>
 body { margin: 1.25rem auto; padding: 0 1rem; max-width: 36rem; color: #152a38; font: 1.05rem/1.6 system-ui, sans-serif; }
@@ -27,6 +27,21 @@ const fields = new Map([['woffEntry', 'identity']]);
 for (const key of ['timestamp', 'nonce', 'signature']) {
   const values = search.getAll(key);
   if (values.length === 1 && values[0]) fields.set(key, values[0]);
+}
+
+function requestedPlan(...queries) {
+  // The SDK may restore the launch query from woff.state during initialization.
+  const sources = queries.flatMap(query => [
+    query,
+    ...query.getAll('woff.state')
+      .filter(state => /^\/?\?/.test(state))
+      .map(state => new URLSearchParams(state.replace(/^\//, '').split('#', 1)[0])),
+  ]);
+  const selections = sources.map(query => query.getAll('plan')).filter(plans => plans.length);
+  if (!selections.length) return undefined;
+  const [plan] = selections[0];
+  return /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(plan) &&
+    selections.every(plans => plans.length === 1 && plans[0] === plan) ? plan : '';
 }
 
 window.addEventListener('load', async () => {
@@ -55,10 +70,8 @@ window.addEventListener('load', async () => {
     let accessToken;
     try { accessToken = sdk.getAccessToken(); } catch { /* The ID token may be sufficient. */ }
     const body = [...fields, ['idToken', idToken]];
-    if (search.has('plan')) {
-      const plans = search.getAll('plan');
-      body.push(['plan', plans.length === 1 && /^[a-f0-9-]{36}$/.test(plans[0]) ? plans[0] : '']);
-    }
+    const plan = requestedPlan(search, new URLSearchParams(location.search));
+    if (plan !== undefined) body.push(['plan', plan]);
     if (typeof accessToken === 'string' && accessToken && accessToken.length <= 4096) {
       body.push(['accessToken', accessToken]);
     }
