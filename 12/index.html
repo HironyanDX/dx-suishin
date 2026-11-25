@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja" data-woff-id="Yb6q_XoWuNQ3kQj8YNbGRg" data-office="https://script.google.com/macros/s/AKfycbx17M-t2kvKAwpBcc2uaqFKHP_OV3BFiXPwWlD-URikpJL7j_AtNkMbhC1EWxre8kj2LA/exec" data-driver="https://script.google.com/macros/s/AKfycbyZGGiTeHFrEUDM2vYQoXtw60-zao2Wfeuy9JHFnF8OUscNnKo8FAGAGdFc3_drponBIQ/exec">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-gZ7xLU4yYP2AYJbp71mt42SSWlMPaLrNl/XKx+GqZr8='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
+<title>六伸DX 12 入口</title>
+<style>
+body { margin: 0; font: 16px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; color: #17262e; background: #eef2f1; }
+main { max-width: 32rem; margin: 0 auto; padding: 32px 16px; }
+h1 { font-size: 1.2rem; margin: 0 0 8px; }
+#status { color: #536770; }
+#status.error { color: #a2261f; font-weight: 600; }
+</style>
+<script defer src="https://static.worksmobile.net/static/wm/woff/edge/3.7.4/sdk.js"></script>
+</head>
+<body>
+<main>
+<h1>六伸DX 12・統合実証</h1>
+<p id="status" role="status">LINE WORKSで本人を確認しています…</p>
+<noscript>スマートフォンのLINE WORKSでリンクを開いてください。</noscript>
+</main>
+<script>
+'use strict';
+// 12番の入口。起動署名とLINE WORKSのトークンを、選んだGASへHTTPSのフォームPOSTで渡す（値は画面にも記録にも出さない）。
+(() => {
+  const config = document.documentElement.dataset;
+  const status = document.getElementById('status');
+  const first = new URLSearchParams(location.search);
+  const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+  const GAS = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/;
+  const launch = {};
+  ['timestamp', 'nonce', 'signature'].forEach(key => {
+    const values = first.getAll(key);
+    if (values.length === 1 && values[0]) launch[key] = values[0];
+  });
+
+  // WOFFはSDKの初期化中に、起動時のクエリを woff.state から戻すことがある。両方を見て、値がそろうときだけ使う。
+  const sources = query => [query].concat(query.getAll('woff.state')
+    .filter(state => /^\/?\?/.test(state))
+    .map(state => new URLSearchParams(state.replace(/^\//, '').split('#')[0])));
+  const pick = (queries, key) => {
+    const values = queries.flatMap(query => query.getAll(key));
+    if (!values.length) return undefined;
+    return values.every(value => value === values[0]) ? values[0] : null;
+  };
+  const fail = stage => {
+    status.textContent = '本人確認を続けられませんでした。LINE WORKSのリンクから開き直してください。（' + stage + '）';
+    status.className = 'error';
+  };
+
+  window.addEventListener('load', async () => {
+    let stage = 'DX12-ENTRY-SETUP';
+    let timer;
+    try {
+      if (!/^[\w-]{8,80}$/.test(config.woffId) || !GAS.test(config.office) || !GAS.test(config.driver)) throw Error();
+      stage = 'DX12-ENTRY-LAUNCH';
+      if (Object.keys(launch).length !== 3) throw Error();
+      stage = 'DX12-ENTRY-SDK';
+      if (!window.woff) throw Error();
+      await Promise.race([window.woff.init({woffId: config.woffId}),
+        new Promise((_, reject) => { timer = setTimeout(reject, 12000); })]);
+      stage = 'DX12-ENTRY-CLIENT';
+      if (!window.woff.isInClient()) throw Error();
+      stage = 'DX12-ENTRY-TOKEN';
+      const idToken = window.woff.getIDToken();
+      const accessToken = window.woff.getAccessToken();
+      if (typeof idToken !== 'string' || !idToken || idToken.length > 8192 ||
+          typeof accessToken !== 'string' || !accessToken || accessToken.length > 4096) throw Error();
+      const queries = sources(first).concat(sources(new URLSearchParams(location.search)));
+      const app = pick(queries, 'app');
+      const plan = pick(queries, 'plan');
+      const target = app === 'office' ? config.office : config.driver;
+      const fields = Object.assign({}, launch, {idToken, accessToken});
+      if (plan !== undefined) fields.plan = typeof plan === 'string' && UUID.test(plan) ? plan : '';
+      stage = 'DX12-ENTRY-SEND';
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.action = target;
+      form.hidden = true;
+      Object.keys(fields).forEach(name => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = fields[name];
+        form.append(input);
+      });
+      document.body.append(form);
+      status.textContent = app === 'office' ? '事務所の画面を開いています…' : '運転手の画面を開いています…';
+      form.submit();
+    } catch (_) {
+      fail(stage);
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+})();
+</script>
+</body>
+</html>
