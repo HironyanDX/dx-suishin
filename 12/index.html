@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-Mx+0rI5ezuaxjDYjxbp3jCNaGkVZoXAk0PZN99dq9Rg='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-5LyuAxvIS5ZMjoF1Rd5JTSNdMf5pGZ5N16fMxCT+E8Y='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
 <title>六伸DX 12 入口</title>
 <style>
 body { margin: 0; font: 16px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; color: #17262e; background: #eef2f1; }
@@ -141,6 +141,7 @@ h1 { font-size: 1.2rem; margin: 0 0 8px; }
       const queries = sources(first).concat(sources(new URLSearchParams(location.search)));
       const app = pick(queries, 'app');
       const plan = pick(queries, 'plan');
+      const tab = pick(queries, 'tab');
       const office = app === 'office';
       if (!inClient) {
         // LINE WORKSアプリの外で開けるのは事務所だけ。運転手はスマートフォンのアプリから開く（位置情報・本人の端末）。
@@ -157,6 +158,8 @@ h1 { font-size: 1.2rem; margin: 0 0 8px; }
       stage = 'DX12-ENTRY-TOKEN';
       const fields = Object.assign({}, launch, tokens(sdk));
       if (plan !== undefined) fields.plan = typeof plan === 'string' && UUID.test(plan) ? plan : '';
+      // Botの固定メニューから開いたときの最初の画面（運転手用）。
+      if (!office && ['today', 'plans', 'reports'].includes(tab)) fields.tab = tab;
       stage = 'DX12-ENTRY-SEND';
       send(office ? config.office : config.driver, fields, office ? '事務所の画面を開いています…' : '運転手の画面を開いています…');
     } catch (_) {
