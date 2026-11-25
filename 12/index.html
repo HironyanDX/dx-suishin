@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-w22LWa0lHqtjRyOlgTveee5PyFzzCvgckDhUTAysZsI='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-Mx+0rI5ezuaxjDYjxbp3jCNaGkVZoXAk0PZN99dq9Rg='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
 <title>六伸DX 12 入口</title>
 <style>
 body { margin: 0; font: 16px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; color: #17262e; background: #eef2f1; }
@@ -91,6 +91,14 @@ h1 { font-size: 1.2rem; margin: 0 0 8px; }
     document.body.append(form);
     status.textContent = label;
     form.submit();
+    // GASが本人確認と画面の準備を終えるまで、この画面のまま待つ。経過秒数を出して、止まっていないことを示す。
+    const started = Date.now();
+    const timer = setInterval(() => {
+      const seconds = Math.round((Date.now() - started) / 1000);
+      status.textContent = label.replace(/…$/, '') + '…（' + seconds + '秒）' +
+        (seconds >= 15 ? '　通信に時間がかかっています。このままお待ちください。' : '');
+      if (seconds >= 60) clearInterval(timer);
+    }, 1000);
   };
 
   const tokens = sdk => {
