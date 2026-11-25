@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-gZ7xLU4yYP2AYJbp71mt42SSWlMPaLrNl/XKx+GqZr8='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://static.worksmobile.net 'sha256-w22LWa0lHqtjRyOlgTveee5PyFzzCvgckDhUTAysZsI='; script-src-elem https://static.worksmobile.net 'unsafe-inline'; script-src-attr 'none'; connect-src https://woff.worksmobile.com https://auth.worksmobile.com https://dev.worksmobile.com; form-action https://script.google.com https://script.googleusercontent.com; base-uri 'none'; style-src 'unsafe-inline'">
 <title>六伸DX 12 入口</title>
 <style>
 body { margin: 0; font: 16px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; color: #17262e; background: #eef2f1; }
@@ -46,9 +46,59 @@ h1 { font-size: 1.2rem; margin: 0 0 8px; }
     if (!values.length) return undefined;
     return values.every(value => value === values[0]) ? values[0] : null;
   };
+  const MESSAGES = {
+    'DX12-ENTRY-CLIENT': '運転手の画面は、スマートフォンのLINE WORKSアプリのトークからリンクを開いてください。',
+    'DX12-ENTRY-RESUME': 'ログインの途中で確認が途切れました。LINE WORKSの事務所用リンクから開き直してください。',
+  };
   const fail = stage => {
-    status.textContent = '本人確認を続けられませんでした。LINE WORKSのリンクから開き直してください。（' + stage + '）';
+    status.textContent = (MESSAGES[stage] || '本人確認を続けられませんでした。LINE WORKSのリンクから開き直してください。') + '（' + stage + '）';
     status.className = 'error';
+  };
+
+  // PC（LINE WORKSアプリの外）で事務所の画面を開くときは、LINE WORKSのログインを挟む。
+  // 起動署名はログインの往復で消えるため、このタブの sessionStorage に一時的に預け、戻ってきたら取り出して消す。
+  const SCOPE = 'openid profile email';
+  const KEEP = 'dx12-office-launch:' + config.woffId;
+  const resuming = first.getAll('dx12login').length === 1 && first.get('dx12login') === 'resume';
+  const callback = location.origin + location.pathname + '?dx12login=resume';
+  const store = {
+    take() {
+      try {
+        const saved = JSON.parse(window.sessionStorage.getItem(KEEP) || 'null');
+        window.sessionStorage.removeItem(KEEP);
+        return saved;
+      } catch (_) {
+        return null;
+      }
+    },
+    keep(value) {
+      try { window.sessionStorage.setItem(KEEP, JSON.stringify(value)); return true; } catch (_) { return false; }
+    },
+  };
+
+  const send = (target, fields, label) => {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = target;
+    form.hidden = true;
+    Object.keys(fields).forEach(name => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = fields[name];
+      form.append(input);
+    });
+    document.body.append(form);
+    status.textContent = label;
+    form.submit();
+  };
+
+  const tokens = sdk => {
+    const idToken = sdk.getIDToken();
+    const accessToken = sdk.getAccessToken();
+    if (typeof idToken !== 'string' || !idToken || idToken.length > 8192 ||
+        typeof accessToken !== 'string' || !accessToken || accessToken.length > 4096) throw Error();
+    return {idToken, accessToken};
   };
 
   window.addEventListener('load', async () => {
@@ -56,40 +106,51 @@ h1 { font-size: 1.2rem; margin: 0 0 8px; }
     let timer;
     try {
       if (!/^[\w-]{8,80}$/.test(config.woffId) || !GAS.test(config.office) || !GAS.test(config.driver)) throw Error();
-      stage = 'DX12-ENTRY-LAUNCH';
+      const saved = resuming ? store.take() : null;
+      stage = resuming ? 'DX12-ENTRY-RESUME' : 'DX12-ENTRY-LAUNCH';
+      if (resuming) {
+        if (!saved || ['timestamp', 'nonce', 'signature'].some(key => typeof saved[key] !== 'string' || !saved[key])) throw Error();
+        ['timestamp', 'nonce', 'signature'].forEach(key => { launch[key] = saved[key]; });
+      }
       if (Object.keys(launch).length !== 3) throw Error();
       stage = 'DX12-ENTRY-SDK';
-      if (!window.woff) throw Error();
-      await Promise.race([window.woff.init({woffId: config.woffId}),
-        new Promise((_, reject) => { timer = setTimeout(reject, 12000); })]);
-      stage = 'DX12-ENTRY-CLIENT';
-      if (!window.woff.isInClient()) throw Error();
-      stage = 'DX12-ENTRY-TOKEN';
-      const idToken = window.woff.getIDToken();
-      const accessToken = window.woff.getAccessToken();
-      if (typeof idToken !== 'string' || !idToken || idToken.length > 8192 ||
-          typeof accessToken !== 'string' || !accessToken || accessToken.length > 4096) throw Error();
+      const sdk = window.woff;
+      if (!sdk) throw Error();
+      const settings = resuming ? {woffId: config.woffId, scope: SCOPE, redirectUri: callback} : {woffId: config.woffId};
+      await Promise.race([sdk.init(settings), new Promise((_, reject) => { timer = setTimeout(reject, 12000); })]);
+      const inClient = sdk.isInClient();
+
+      if (resuming) {
+        // ログインから戻ってきたPC。行き先は事務所に限る。
+        stage = 'DX12-ENTRY-TOKEN';
+        if (inClient || !sdk.isLoggedIn()) throw Error();
+        const fields = Object.assign({}, launch, tokens(sdk));
+        stage = 'DX12-ENTRY-SEND';
+        send(config.office, fields, '事務所の画面を開いています…');
+        return;
+      }
+
       const queries = sources(first).concat(sources(new URLSearchParams(location.search)));
       const app = pick(queries, 'app');
       const plan = pick(queries, 'plan');
-      const target = app === 'office' ? config.office : config.driver;
-      const fields = Object.assign({}, launch, {idToken, accessToken});
+      const office = app === 'office';
+      if (!inClient) {
+        // LINE WORKSアプリの外で開けるのは事務所だけ。運転手はスマートフォンのアプリから開く（位置情報・本人の端末）。
+        stage = 'DX12-ENTRY-CLIENT';
+        if (!office) throw Error();
+        if (!sdk.isLoggedIn()) {
+          stage = 'DX12-ENTRY-LOGIN';
+          if (!store.keep(launch)) throw Error();
+          status.textContent = 'LINE WORKSのログイン画面を開いています…';
+          sdk.login({scope: SCOPE, redirectUri: callback});
+          return;
+        }
+      }
+      stage = 'DX12-ENTRY-TOKEN';
+      const fields = Object.assign({}, launch, tokens(sdk));
       if (plan !== undefined) fields.plan = typeof plan === 'string' && UUID.test(plan) ? plan : '';
       stage = 'DX12-ENTRY-SEND';
-      const form = document.createElement('form');
-      form.method = 'post';
-      form.action = target;
-      form.hidden = true;
-      Object.keys(fields).forEach(name => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = fields[name];
-        form.append(input);
-      });
-      document.body.append(form);
-      status.textContent = app === 'office' ? '事務所の画面を開いています…' : '運転手の画面を開いています…';
-      form.submit();
+      send(office ? config.office : config.driver, fields, office ? '事務所の画面を開いています…' : '運転手の画面を開いています…');
     } catch (_) {
       fail(stage);
     } finally {
